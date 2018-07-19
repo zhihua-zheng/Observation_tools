@@ -29,6 +29,7 @@ f2 = figure;
 % initialize ship variables
 ship_lat = zeros(86400,1);
 ship_lon = zeros(86400,1);
+ship_inx = 0; % index for the times ship info has been updated
 
 % initialize float/drifter variables
 new_positions = [1,1,1,1,1,1,1,1];
@@ -39,15 +40,14 @@ total_emapex_calls = 0;
 previous_number_of_calls = 0;
 
 drifter_call_string = {'','','','','','','',''};
-previous_total = 0;
 
 project_start=datenum(2018,07,15,17,00,00); % project start time
 
 AA = 0;
 it = 1; % number for loop iterations
-ship_inx = 0; % index for the times ship info has been updated
 
-% the loop to update info
+%% the loop to update info
+
 while AA==0
     
     % check ship variables
@@ -136,6 +136,7 @@ while AA==0
     % pick out specific floats used
     project_subset = find...
         (emapex_fnum>= 7801 & emapex_fnum<=7805 | emapex_fnum==7488);
+    
     emapex_fnum = emapex_fnum(project_subset);
     emapex_lats = emapex_lats(project_subset);
     emapex_lons = emapex_lons(project_subset);
@@ -143,6 +144,7 @@ while AA==0
     
     % update *.gpx file on server with latest EM-APEX positions
     total_emapex_calls = length(emapex_fnum);
+    
     if total_emapex_calls>previous_number_of_calls
         
         fids = unique(emapex_fnum);
@@ -167,17 +169,15 @@ while AA==0
     %svp50=svp50';
     %svp70=svp70';
 
-    if (mod(it,200)==0 || it==1)  % 200 ~ 36.7mins, 11s/loop
+    if (mod(it,200)==0 || it==1)  % 200 ~ 36.7mins, 11s/loop in average
        
-        % new function, call every hour  
+        % new function, call every half an hour approximately 
         [svp50,svp70]=drifter_data_download(); 
-    end
-    
-    drifter_calls(1) = length(svp50);
-    drifter_calls(2) = length(svp70);
-    
-    if sum(drifter_calls)>previous_total
         
+        drifter_calls(1) = length(svp50);
+        drifter_calls(2) = length(svp70);
+        
+        % update the *.gpx file whenever there is a new drifter position
         latest_emapex_lats(7) = svp50(2,end);
         latest_emapex_lons(7) = svp50(3,end);
         latest_emapex_calls(7) = svp50(1,end);
@@ -190,8 +190,6 @@ while AA==0
         float_wpt_file_update(new_positions,latest_emapex_lats,...
             latest_emapex_lons,latest_emapex_calls,drifter_call_string);
     end
-    
-    previous_total = drifter_calls(1)+drifter_calls(2);
     
     % get track waypoints
     survey_track = gpxread(gpxfile);
@@ -220,13 +218,8 @@ while AA==0
         'LineStyle','-.','Color',[.62 .62 .62],'linewidth',3);
     hold on
     
-    ship_track = plotm(ship_lat,ship_lon,'-b','linewidth',.5);
+    ship_track = plotm(ship_lat,ship_lon,'--b','linewidth',.1);
     hold on 
-    
-    latest_ship_position = plotm(ship_lat(ship_inx),ship_lon(ship_inx),...
-                           '-mo','MarkerEdgeColor',[.2 .3 .4],...
-                           'MarkerFaceColor',[.49 1 .63],'MarkerSize',10);
-    hold on
     
     [lat_heading_track,lon_heading_track] = track1(ship_lat(ship_inx),...
         ship_lon(ship_inx),ship_heading,0.01,'degrees');
@@ -235,6 +228,11 @@ while AA==0
     
     ship_heading_arrow = quiverm(lat_heading_track(1),lon_heading_track(1)...
         ,delta_lat,delta_lon,'linewidth',3,'MaxHeadSize',0.5); 
+    hold on
+    
+    latest_ship_position = plotm(ship_lat(ship_inx),ship_lon(ship_inx),...
+                           '-mo','MarkerEdgeColor',[.2 .3 .4],...
+                           'MarkerFaceColor',[.49 1 .63],'MarkerSize',10);
     hold on
     
     % plot drifters
@@ -274,7 +272,6 @@ while AA==0
     hold on 
     
     % plot EM-APEX positions
-    
     if exist('emapex_plotted_positions','var')
         delete(emapex_plotted_positions)
         delete(emapex_plotted_text)
@@ -328,12 +325,10 @@ while AA==0
     
     xlim = get(HA,'XLim');
     ylim = get(HA,'YLim');
-    scaleruler('XLoc',xlim(2)-8000,'YLoc',ylim(2)-8000,'fontname',...
-        'times','fontsize',8)
+    scaleruler('XLoc',xlim(2)-6500,'YLoc',ylim(2)-8000,'fontname',...
+        'times','fontsize',10)
     ruler = handlem('scaleruler');
     
     pause(5)
     it = it + 1; % count the number of iterations, 1 ~ 5 seconds
-    
-    %AA=AA+1;
 end
