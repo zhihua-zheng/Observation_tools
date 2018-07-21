@@ -11,7 +11,7 @@ function [svp50,svp70]=drifter_data_download()
 url_50 = 'http://out-gdpsio.ucsd.edu/cgi-bin/projects/rc-lien/drifter-test.py?platform_id=300234065618130';
 url_70 = 'http://out-gdpsio.ucsd.edu/cgi-bin/projects/rc-lien/drifter-test.py?platform_id=300234065618150';
 
-options = weboptions('Username','rc-lien','Password','svp50/70');
+options = weboptions('Username','rc-lien','Password','svp50/70','Timeout',20);
 data_50 = webread(url_50, options);
 data_70 = webread(url_70, options);
 
@@ -83,6 +83,10 @@ svp70 = fliplr(svp70);
 
 
 %% write into txt file
+
+tmp1 = svp50';
+tmp2 = svp70';
+save('/Volumes/science_docs/emapex/svp.mat','tmp1','tmp2')
 
 % fileID = fopen('/Volumes/science_docs/drifter/drifter_positions_test.txt','w');
 % formatSpec = '%s \n';

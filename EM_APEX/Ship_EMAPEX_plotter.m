@@ -39,11 +39,10 @@ latest_emapex_calls = [0,0,0,0,0,0,0,0];
 total_emapex_calls = 0;
 previous_number_of_calls = 0;
 
-drifter_call_string = {'','','','','','','',''};
+% project start time
+project_start=datenum(2018,07,15,17,00,00); 
 
-project_start=datenum(2018,07,15,17,00,00); % project start time
-
-AA = 0;
+AA = 0; % loop condition
 it = 1; % number for loop iterations
 
 %% the loop to update info
@@ -61,8 +60,12 @@ while AA==0
     end
     
     
-    % get latest gps position
-    if (mod(it,6)==0 || it==1)  % update the ship info every 5 iterations
+    % get latest ship GPS position and survey route  
+    if (mod(it,6)==0 || it==1)  % update the ship info every 6 iterations
+       
+        % get track waypoints
+       survey_track = gpxread(gpxfile);
+        
        ship_inx = ship_inx + 1;
        nmea_feed = get_GPS_NMEA_udp;
 
@@ -107,11 +110,12 @@ while AA==0
 
               end %ignore $GPRMC for now
            end
-        else
+       else
             continue %if a full NMEA string wasn't recieved go back to beginning
-        end
+       end
     end
     
+   
     % get all EM-APEX positions from project
 
     % ema_gps=fopen('Z:docs\science_docs\emapex\ema-gps.txt');
@@ -142,57 +146,21 @@ while AA==0
     emapex_lons = emapex_lons(project_subset);
     emapex_mlds = emapex_mlds(project_subset);
     
-    % update *.gpx file on server with latest EM-APEX positions
     total_emapex_calls = length(emapex_fnum);
     
-    if total_emapex_calls>previous_number_of_calls
-        
-        fids = unique(emapex_fnum);
-        for i = 1:length(fids)
-            fid = fids(i);
-            ii = find(emapex_fnum==fid);
-            latest_call = max(ii);
-            latest_emapex_lats(i) = emapex_lats(latest_call);
-            latest_emapex_lons(i) = emapex_lons(latest_call);
-            latest_emapex_calls(i) = emapex_mlds(latest_call);
-        end
-        float_wpt_file_update(new_positions,latest_emapex_lats,...
-            latest_emapex_lons,latest_emapex_calls,drifter_call_string);
-    end
     
-    previous_number_of_calls = total_emapex_calls;
-    
-    
-    % get drifter data - format datenum,lat,lon
+    % get drifter data - format datenum, lat, lon
     
     %[svp50,svp70]=get_drifter_data();
     %svp50=svp50';
     %svp70=svp70';
-
+    
     if (mod(it,200)==0 || it==1)  % 200 ~ 36.7mins, 11s/loop in average
        
         % new function, call every half an hour approximately 
-        [svp50,svp70]=drifter_data_download(); 
-        
-        drifter_calls(1) = length(svp50);
-        drifter_calls(2) = length(svp70);
-        
-        % update the *.gpx file whenever there is a new drifter position
-        latest_emapex_lats(7) = svp50(2,end);
-        latest_emapex_lons(7) = svp50(3,end);
-        latest_emapex_calls(7) = svp50(1,end);
-        latest_emapex_lats(8) = svp70(2,end);
-        latest_emapex_lons(8) = svp70(3,end);
-        latest_emapex_calls(8) = svp70(1,end);
-        drifter_call_string{7} = num2str(drifter_calls(1));
-        drifter_call_string{8} = num2str(drifter_calls(2));
-        
-        float_wpt_file_update(new_positions,latest_emapex_lats,...
-            latest_emapex_lons,latest_emapex_calls,drifter_call_string);
+        [svp50,svp70]=drifter_data_download();    
     end
     
-    % get track waypoints
-    survey_track = gpxread(gpxfile);
     
     % find lat and lon window capturing ship and all float positions
     all_lats = horzcat(emapex_lats,ship_lat(ship_inx),svp50(2,:),...
@@ -202,108 +170,157 @@ while AA==0
     latlim = [min(all_lats)-.03 max(all_lats)+.03];
     lonlim = [min(all_lons)-.03 max(all_lons)+.03];
     
-     
-    HA = axesm('UTM','MapLatLimit',latlim,'MapLonLimit',lonlim,'grid','on');
+    % set figure scope limit
+    HA = axesm('UTM','MapLatLimit',latlim,'MapLonLimit',lonlim,'grid','off');
     hold(HA,'on')
     
-    % plot survey waypoints and ship position
-    if exist('ship_track','var')
-        delete(ship_track)
-        delete(box_survey_track)
-        delete(latest_ship_position)
-        delete(ship_heading_arrow)
-    end
     
-    box_survey_track = plotm(survey_track.Latitude,survey_track.Longitude,...
-        'LineStyle','-.','Color',[.62 .62 .62],'linewidth',3);
-    hold on
-    
-    ship_track = plotm(ship_lat,ship_lon,'--b','linewidth',.1);
-    hold on 
-    
-    [lat_heading_track,lon_heading_track] = track1(ship_lat(ship_inx),...
-        ship_lon(ship_inx),ship_heading,0.01,'degrees');
-    delta_lat = lat_heading_track(end)-lat_heading_track(1);
-    delta_lon = lon_heading_track(end)-lon_heading_track(1);
-    
-    ship_heading_arrow = quiverm(lat_heading_track(1),lon_heading_track(1)...
-        ,delta_lat,delta_lon,'linewidth',3,'MaxHeadSize',0.5); 
-    hold on
-    
-    latest_ship_position = plotm(ship_lat(ship_inx),ship_lon(ship_inx),...
-                           '-mo','MarkerEdgeColor',[.2 .3 .4],...
-                           'MarkerFaceColor',[.49 1 .63],'MarkerSize',10);
-    hold on
-    
-    % plot drifters
-    if exist('drifter1','var')
-        delete(drifter1)
-        delete(drifter2)
-        delete(drifter1last)
-        delete(drifter2last)
-        delete(drifter1text)
-        delete(drifter2text)
-    end
-    
-    drifter1 = plotm(svp50(2,:),svp50(3,:),':.r','markersize',10,'linewidth',.4);
-    hold on
-    
-    drifter2 = plotm(svp70(2,:),svp70(3,:),':.r','markersize',10,'linewidth',.4);
-    hold on
-    
-%     drifter1=plotm(svp50(2,:),svp50(3,:),':r','linewidth',.3);
-%     drifter2=plotm(svp70(2,:),svp70(3,:),':r','linewidth',.3);
-%     cmocean('matter')
-%     drifter1_s=scatterm(svp50(2,:),svp50(3,:),15,svp50(1,:),'filled');
-%     drifter2_s=scatterm(svp70(2,:),svp70(3,:),15,svp70(1,:),'filled');
-    
-    drifter1last = plotm(svp50(2,end),svp50(3,end),'^r','markersize',8);
-    hold on
-    
-    drifter2last = plotm(svp70(2,end),svp70(3,end),'^r','markersize',8);
-    hold on
-    
-    drifter1text = textm(svp50(2,end),svp50(3,end)+0.002,...
-        ['SVP50-' datestr(svp50(1,end),'HH:MM')]);
-    hold on
-    
-    drifter2text = textm(svp70(2,end),svp70(3,end)+0.002,...
-        ['SVP70-' datestr(svp70(1,end),'HH:MM')]);
-    hold on 
-    
-    % plot EM-APEX positions
-    if exist('emapex_plotted_positions','var')
-        delete(emapex_plotted_positions)
-        delete(emapex_plotted_text)
-        delete(emapex_last_plotted_positions)
-    end
-    
-    % initialize the float plotting handles
-    emapex_plotted_positions = gobjects(1,6);
-    emapex_plotted_text = gobjects(1,6);
-    emapex_last_plotted_positions = gobjects(1,6);
-    
-    fids = unique(emapex_fnum);
-    for i = 1:length(fids)
-        fid = fids(i);
-        ii = find(emapex_fnum==fid);
+    % update the ship and route plots every 6 iterations
+    if (mod(it,6)==0 || it==1)  
+        
+        % plot survey waypoints and ship position
+       if exist('ship_track','var')
+            delete(ship_track)
+            delete(box_survey_track)
+            delete(latest_ship_position)
+            delete(ship_heading_arrow)
+       end
        
-        emapex_plotted_positions(i) = plotm(emapex_lats(ii),emapex_lons(ii),...
-            ':.','Color',[.9 .6 0],'markersize',10,'linewidth',.4);
-        hold on
+       % survey route
+       box_survey_track = plotm(survey_track.Latitude,survey_track.Longitude,...
+            'LineStyle','-.','Color',[.62 .62 .62],'linewidth',3);
+       hold on
+       
+       % ship track
+       ship_track = plotm(ship_lat,ship_lon,'-b','linewidth',.07);
+       hold on 
+       
+       % ship heading arrow
+       [lat_heading_track,lon_heading_track] = track1(ship_lat(ship_inx),...
+            ship_lon(ship_inx),ship_heading,0.01,'degrees');
+       delta_lat = lat_heading_track(end)-lat_heading_track(1);
+       delta_lon = lon_heading_track(end)-lon_heading_track(1);
+
+       ship_heading_arrow = quiverm(lat_heading_track(1),lon_heading_track(1)...
+            ,delta_lat,delta_lon,'linewidth',3,'MaxHeadSize',0.5); 
+       hold on
+       
+       % current ship position
+       latest_ship_position = plotm(ship_lat(ship_inx),ship_lon(ship_inx),...
+                               '-mo','MarkerEdgeColor',[.2 .3 .4],...
+                               'MarkerFaceColor',[.49 1 .63],'MarkerSize',10);
+       hold on       
+    end
+    
+    
+    
+    % update EM-APEX float info
+    if total_emapex_calls>previous_number_of_calls || previous_number_of_calls==0
         
-        latest_call = max(ii);
-        emapex_plotted_text(i)=textm(emapex_lats(latest_call),...
-            emapex_lons(latest_call)+0.002,char(rot90(strcat(num2str...
-            ((emapex_fnum(latest_call))'),'-  ',string(datestr...
-            (emapex_mlds(latest_call),'HH:MM'))))));
-        hold on
+        % plot EM-APEX positions
+        if exist('emapex_plotted_positions','var')
+            delete(emapex_plotted_positions)
+            delete(emapex_plotted_text)
+            delete(emapex_last_plotted_positions)
+        end
+     
+        % initialize the float plotting handles
+        emapex_plotted_positions = gobjects(1,6);
+        emapex_plotted_text = gobjects(1,6);
+        emapex_last_plotted_positions = gobjects(1,6);
         
-        emapex_last_plotted_positions(i)=plotm(emapex_lats(latest_call),...
-            emapex_lons(latest_call),':*','Color',[.4 .2 .6],'markersize',8);
+        fids = unique(emapex_fnum);
+        
+        for i = 1:length(fids)
+            
+            fid = fids(i);
+            ii = find(emapex_fnum==fid);
+            latest_call = max(ii);
+            
+            latest_emapex_lats(i) = emapex_lats(latest_call);
+            latest_emapex_lons(i) = emapex_lons(latest_call);
+            latest_emapex_calls(i) = emapex_mlds(latest_call);
+            
+            % historic positions
+            emapex_plotted_positions(i) = plotm(emapex_lats(ii),emapex_lons(ii),...
+                ':.','Color',[.9 .6 0],'markersize',10,'linewidth',.4);
+            hold on
+            
+            % text lable
+            emapex_plotted_text(i)=textm(latest_emapex_lats(i),...
+                latest_emapex_lons(i)+0.002,char(strcat(num2str(fid),'-  ',string(datestr...
+                (latest_emapex_calls(i),'HH:MM')))));
+            hold on
+            
+            % lastest positions
+            emapex_last_plotted_positions(i)=plotm(emapex_lats(latest_call),...
+                emapex_lons(latest_call),':*','Color',[.4 .2 .6],'markersize',8);
+            hold on 
+        end
+        
+        % update *.gpx file for openCPN
+        float_wpt_file_update(new_positions,latest_emapex_lats,...
+            latest_emapex_lons,latest_emapex_calls);            
+    end
+    previous_number_of_calls = total_emapex_calls;
+    
+    
+    
+    % update the drifter info when there is a new grabbing from web
+    if (mod(it,200)==0 || it==1)
+        
+        % update the *.gpx file whenever there is a new drifter position
+        latest_emapex_lats(7) = svp50(2,end);
+        latest_emapex_lons(7) = svp50(3,end);
+        latest_emapex_calls(7) = svp50(1,end);
+        latest_emapex_lats(8) = svp70(2,end);
+        latest_emapex_lons(8) = svp70(3,end);
+        latest_emapex_calls(8) = svp70(1,end);
+        
+        float_wpt_file_update(new_positions,latest_emapex_lats,...
+            latest_emapex_lons,latest_emapex_calls);
+        
+        % plot drifters
+        if exist('drifter1','var')
+            delete(drifter1)
+            delete(drifter2)
+            delete(drifter1last)
+            delete(drifter2last)
+            delete(drifter1text)
+            delete(drifter2text)
+        end
+        
+        % historic positions
+        drifter1 = plotm(svp50(2,:),svp50(3,:),':.r','markersize',10,'linewidth',.4);
+        hold on
+
+        drifter2 = plotm(svp70(2,:),svp70(3,:),':.r','markersize',10,'linewidth',.4);
+        hold on
+
+        % drifter1=plotm(svp50(2,:),svp50(3,:),':r','linewidth',.3);
+        % drifter2=plotm(svp70(2,:),svp70(3,:),':r','linewidth',.3);
+        % cmocean('matter')
+        % drifter1_s=scatterm(svp50(2,:),svp50(3,:),15,svp50(1,:),'filled');
+        % drifter2_s=scatterm(svp70(2,:),svp70(3,:),15,svp70(1,:),'filled');
+        
+        % lastest postion
+        drifter1last = plotm(svp50(2,end),svp50(3,end),'^r','markersize',8);
+        hold on
+
+        drifter2last = plotm(svp70(2,end),svp70(3,end),'^r','markersize',8);
+        hold on
+
+        % text label
+        drifter1text = textm(svp50(2,end),svp50(3,end)+0.002,...
+            ['SVP50-' datestr(svp50(1,end),'HH:MM')]);
+        hold on
+
+        drifter2text = textm(svp70(2,end),svp70(3,end)+0.002,...
+            ['SVP70-' datestr(svp70(1,end),'HH:MM')]);
         hold on 
     end
-
+    
+   
     
     % print updated time on command window
     fprintf(1,'updated %s UTC\n',ship_gps_time);
