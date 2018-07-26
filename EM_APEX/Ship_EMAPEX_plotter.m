@@ -56,7 +56,9 @@ while AA==0
         % when the array gets too large
         ship_lat = circshift(ship_lat,-17280);
         ship_lon = circshift(ship_lon,-17280);
-        ship_inx = ship_inx - 17280;
+        ship_lat(end-17279:end) = 0;
+        ship_lon(end-17279:end) = 0;
+        ship_inx = ship_inx - 17279;
     end
     
     
@@ -128,7 +130,7 @@ while AA==0
     datetimestr = string(ema{2});
     dnum_all = datenum(char(datetimestr),'yyyy/mm/dd HH:MM:SS');
     lats_all = (ema{3}+ema{4}/60)';
-    lons_all = (ema{5}+ema{6}/60)';
+    lons_all = (ema{5}+ema{6}/60)'; % new bug!!
     
     % pick out the data for this project
     start_inx = find(dnum_all > project_start,1,'first');
@@ -155,7 +157,7 @@ while AA==0
     %svp50=svp50';
     %svp70=svp70';
     
-    if (mod(it,200)==0 || it==1)  % 200 ~ 36.7mins, 11s/loop in average
+    if (mod(it,600)==0 || it==1)  % 600 ~ 30mins, 3s/loop in average
        
         % new function, call every half an hour approximately 
         [svp50,svp70]=drifter_data_download();    
