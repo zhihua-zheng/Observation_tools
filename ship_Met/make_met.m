@@ -73,6 +73,6 @@ for i = 1:length(folder)
     
 end
 
-save([main_dir,slash,MetData_',datestr(now,'mm/dd')],'MetData');
+save([main_dir,slash,'MetData_',datestr(now,'mmdd')],'MetData');
 
 
