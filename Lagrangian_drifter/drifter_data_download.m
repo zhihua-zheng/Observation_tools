@@ -17,7 +17,7 @@ data_70 = webread(url_70, options);
 
 %% data munging
 
-    % heading = data_50(1:230);
+    % head = data_50(1:230);
 
     rows_50 = strfind(data_50,'</br>');
     rows_70 = strfind(data_70,'</br>');
@@ -29,8 +29,7 @@ data_70 = webread(url_70, options);
 
         drifter_50(i) = {data_50(rows_50(i)+5:rows_50(i+1)-1)};
     end
-
-    drifter_50(end) = {data_50(rows_50(end)+5:end)};
+    
     % remove empty content
     drifter_50 = drifter_50(~cellfun(@isempty, drifter_50));
 
@@ -40,7 +39,6 @@ data_70 = webread(url_70, options);
         drifter_70(i) = {data_70(rows_70(i)+5:rows_70(i+1)-1)};  
     end
     
-    drifter_70(end) = {data_70(rows_70(end)+5:end)};
     % remove empty content
     drifter_70 = drifter_70(~cellfun(@isempty, drifter_70));
 
